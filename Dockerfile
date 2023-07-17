@@ -34,7 +34,7 @@ RUN apt-get update -y
 RUN apt-get -y install gcc make autoconf libc-dev pkg-config libzip-dev
 
 RUN apt-get install -y --no-install-recommends \
-	git wget supervisor nginx  \
+	git wget supervisor nginx vim \
 	libmemcached-dev \
 	libz-dev \
 	libpq-dev \
@@ -111,7 +111,7 @@ RUN yes "" | pecl install msgpack && \
 RUN pecl install apcu && \
 	docker-php-ext-enable apcu --ini-name docker-php-ext-10-apcu.ini
 
-RUN apt-get update -y && apt-get install -y apt-transport-https locales gnupg
+#RUN apt-get update -y && apt-get install -y apt-transport-https locales gnupg
 
 # install MSSQL support and ODBC driver
 # RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
@@ -133,8 +133,8 @@ RUN docker-php-ext-configure \
 
 
 # set locale to utf-8
-RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
-ENV LANG='zh_CN.UTF-8' LANGUAGE='zh_CN:en' LC_ALL='en_US.UTF-8'
+#RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
+#ENV LANG='zh_CN.UTF-8' LANGUAGE='zh_CN:en' LC_ALL='en_US.UTF-8'
 
 #--------------------------------------------------------------------------
 # Final Touches
@@ -169,9 +169,24 @@ RUN sed -i "s|;date.timezone =.*|date.timezone = ${TIMEZONE}|" /usr/local/etc/ph
     sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /usr/local/etc/php/php.ini && \
     sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /usr/local/etc/php/php.ini
 
+
+# Configure nginx
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY config/nginx.conf /etc/nginx/nginx.conf
+COPY config/site-default.conf /etc/nginx/conf.d/default.conf
+
+COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY config/supervisord.conf /etc/supervisord.conf
+
+COPY config/00-sysctl.conf  /etc/sysctl.d/00-sysctl.conf
+RUN cat /etc/sysctl.d/00-sysctl.conf >> /etc/sysctl.conf
+
+
 # Add application
 RUN mkdir -p /run/nginx
 RUN mkdir -p /var/www/html
+RUN rm -rf /var/www/html/*
+RUN echo "<?php phpinfo();" > /var/www/html/index.php
 
 ADD scripts/fpm-conf.sh /fpm-conf
 RUN chmod 755 /fpm-conf
@@ -180,12 +195,13 @@ RUN chmod 755 /fpm-conf
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 # Add user group and user devops
 RUN groupadd -g 1000 devops
-RUN adduser -D -u 1000 -G devops devops
+RUN useradd -m -d /var/www/html -u 1000 -g devops devops
 
-RUN mkdir -p /var/www
 RUN chown -R devops:devops /var/www
 RUN chown -R devops:devops /run
 RUN chown -R devops:devops /var/lib/nginx
+RUN chown -R devops:devops /var/log/nginx
 
-USER devops
+#USER devops
 EXPOSE 80 443
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
