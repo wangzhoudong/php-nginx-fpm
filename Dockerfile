@@ -66,7 +66,9 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
             php7.4-intl \
             php7.4-xml \
             php7.4-xmlwriter \
+            php7.4-mongodb \
             php-pear \
+    && curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer \
     && pecl -d php_suffix=7.4 install -o -f redis memcached \
     && mkdir -p /run/php \
     && pip install wheel \
