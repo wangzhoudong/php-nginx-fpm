@@ -41,6 +41,7 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
             cron \
             nginx \
             vim \
+            git \
             zip \
             unzip \
             python-pip \
