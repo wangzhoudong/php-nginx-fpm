@@ -38,12 +38,14 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests -q -y \
             apt-utils \
+            vim \
             cron \
             nginx \
             vim \
             git \
             zip \
             unzip \
+            ghostscript \
             python-pip \
             python-setuptools \
             libmemcached-dev \
@@ -70,7 +72,7 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
             php7.4-mongodb \
             php-pear \
     && curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer \
-    && pecl -d php_suffix=7.4 install -o -f redis memcached \
+    && pecl -d php_suffix=7.4 install -o -f redis memcached xlswriter\
     && mkdir -p /run/php \
     && pip install wheel \
     && pip install supervisor supervisor-stdout \
@@ -78,10 +80,13 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
     && rm -rf /etc/nginx/conf.d/default.conf \
     && echo "extension=redis.so" > /etc/php/7.4/mods-available/redis.ini \
     && echo "extension=memcached.so" > /etc/php/7.4/mods-available/memcached.ini \
+    && echo "extension=xlswriter.so" > /etc/php/7.4/mods-available/xlswriter.ini \
     && ln -sf /etc/php/7.4/mods-available/redis.ini /etc/php/7.4/fpm/conf.d/20-redis.ini \
     && ln -sf /etc/php/7.4/mods-available/redis.ini /etc/php/7.4/cli/conf.d/20-redis.ini \
     && ln -sf /etc/php/7.4/mods-available/memcached.ini /etc/php/7.4/fpm/conf.d/20-memcached.ini \
     && ln -sf /etc/php/7.4/mods-available/memcached.ini /etc/php/7.4/cli/conf.d/20-memcached.ini \
+    && ln -sf /etc/php/7.4/mods-available/xlswriter.ini /etc/php/7.4/fpm/conf.d/20-xlswriter.ini \
+    && ln -sf /etc/php/7.4/mods-available/xlswriter.ini /etc/php/7.4/cli/conf.d/20-xlswriter.ini \
     # Clean up
     && rm -rf /tmp/pear \
     && apt-get purge -y --auto-remove $buildDeps \
@@ -89,6 +94,9 @@ RUN buildDeps='curl gcc make autoconf libc-dev zlib1g-dev pkg-config' \
     && apt-get autoremove \
     && rm -rf /var/lib/apt/lists/*
 
+# 安装ddtrace
+#COPY lib/datadog-php-tracer.deb /tmp/datadog-php-tracer.deb
+#RUN /usr/bin/dpkg -i /tmp/datadog-php-tracer.deb && rm -f /tmp/datadog-php-tracer.deb
 
 #vim 中文乱码问题
 RUN echo ":set encoding=utf-8" >> /root/.vimrc && \
@@ -124,13 +132,16 @@ COPY config/site-default.conf /etc/nginx/conf.d/default.conf
 
 #兼容之前单独安装的环境
 RUN ln -s /usr/bin/php7.4 /usr/local/bin/php  \
+    && ln -s /usr/bin/php7.4 /usr/bin/php7  \
     && ln -s /usr/sbin/php-fpm7.4 /usr/local/sbin/php-fpm  \
     && mkdir -p /usr/local/etc/php/  \
     && ln -s /etc/php/7.4/fpm/php.ini /usr/local/etc/php/php.ini  \
     && mkdir -p /usr/local/etc/php-fpm.d/  \
-    && ln -s /etc/php/7.4/fpm/pool.d/www.conf /usr/local/etc/php-fpm.d/www.conf
+    && ln -s /etc/php/7.4/fpm/pool.d/www.conf /usr/local/etc/php-fpm.d/www.conf \
+    && ln -s /usr/local/bin/supervisord /usr/bin/supervisord
 
-
+#解决服务ssl 版本过低的问题
+RUN sed -i 's/TLSv1.2/TLSv1/g' /etc/ssl/openssl.cnf
 # Add application
 RUN mkdir -p /run/nginx  \
     && mkdir -p /var/www/html  \
